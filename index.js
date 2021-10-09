@@ -1,9 +1,12 @@
+if (process.env.NODE_ENV !== "production") {
+  require("dotenv").config();
+}
+
 const express = require("express");
 const Razorpay = require("razorpay")
 var Mailchimp = require('mailchimp-api-v3')
 const app = express();
 const cors = require("cors");
-const PORT = 5000;
 app.use(express.json());
 const corsOptions = {
   origin: "*",
@@ -24,8 +27,8 @@ app.use(cors(corsOptions));
 
 
 const instance = new Razorpay({
-  key_id: "rzp_live_dpzb41Y09Csill",
-  key_secret: "MQxSSzZnX8OCYr8O7jZDiGsD",
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
 
@@ -33,7 +36,7 @@ const instance = new Razorpay({
 ///craete order id
 app.get("/create-order", (req, res,next) => {
   const options = {
-    amount: 399, // amount in the smallest currency unit
+    amount: 299, // amount in the smallest currency unit
     currency: "INR",
     receipt: "order_rcptid_11",
   };
@@ -76,6 +79,6 @@ app.post("/userinfo", (req, res,next) =>{
 
 
 
-app.listen(PORT, function () {
-  console.log(`server is running ${PORT}`);
+app.listen(process.env.PORT, function () {
+  console.log(`server is running ${process.env.PORT}`);
 });
