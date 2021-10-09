@@ -32,6 +32,13 @@ const instance = new Razorpay({
 });
 
 
+app.get("/", (req, res) => {
+  res.send({
+    server : "running"
+  })
+})
+
+
 
 ///craete order id
 app.get("/create-order", (req, res,next) => {
