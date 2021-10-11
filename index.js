@@ -42,7 +42,7 @@ app.get("/", (req, res) => {
 ///craete order id
 app.get("/create-order", (req, res, next) => {
   const options = {
-    amount: 299, // amount in the smallest currency unit
+    amount: 29900, // amount in the smallest currency unit
     currency: "INR",
     receipt: "order_rcptid_11",
   };
