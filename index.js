@@ -53,10 +53,10 @@ app.get("/create-order", (req, res, next) => {
 });
 
 ///get customer info
-app.post("/userinfo", (req, res, next) => {
-  const { payment_id } = req.body;
+app.get("/userinfo/:id", (req, res, next) => {
+  const { id } = req.params;
 
-  instance.payments.fetch(payment_id).then((response) => {
+  instance.payments.fetch(id).then((response) => {
     console.log(response.email);
     res.send({ email: response.email, number: response.contact });
   });
@@ -151,6 +151,14 @@ app.get("/mc/add-followup-tag/:email", (req, res, next) => {
 });
 
 
+app.post('/webhook',(res,req,next) => {
+  console.log(req.body)
+  console.log('working')
+  next()
+})
+
+
+
 
 
 
@@ -158,3 +166,6 @@ app.get("/mc/add-followup-tag/:email", (req, res, next) => {
 app.listen(process.env.PORT, function () {
   console.log(`server is running ${process.env.PORT}`);
 });
+
+
+
