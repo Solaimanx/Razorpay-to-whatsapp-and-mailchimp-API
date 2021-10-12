@@ -45,12 +45,29 @@ app.get("/create-order", (req, res, next) => {
     amount: 299, // amount in the smallest currency unit
     currency: "INR",
     receipt: "order_rcptid_11",
+    payment: {
+      capture: "automatic",
+      capture_options: {
+        automatic_expiry_period : 12,
+        manual_expiry_period : 7200,
+        refund_speed : "optimum"
+      }
+    }
   };
   instance.orders.create(options, function (err, order) {
     console.log(order);
     res.send({ orderId: order.id });
   });
 });
+
+
+
+/// accpet payment
+
+app.get('/accpet',(res, req, next) => {
+
+})
+
 
 ///get customer info
 app.get("/userinfo/:id", (req, res, next) => {
