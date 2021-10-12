@@ -3,12 +3,27 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 const express = require("express");
-const Razorpay = require("razorpay");
+const bodyParser = require("body-parser");
+const axios = require("axios").default;
 var Mailchimp = require("mailchimp-api-v3");
 var md5 = require("md5");
 const app = express();
 const cors = require("cors");
 app.use(express.json());
+app.use(bodyParser.urlencoded({ extended: false }));
+
+var customParser = bodyParser.json({
+  type: function (req) {
+    if (req.headers["content-type"] === "") {
+      return (req.headers["content-type"] = "application/json");
+    } else if (typeof req.headers["content-type"] === "undefined") {
+      return (req.headers["content-type"] = "application/json");
+    } else {
+      return (req.headers["content-type"] = "application/json");
+    }
+  },
+});
+
 const corsOptions = {
   origin: "*",
   methods: ["GET", "PUT", "POST", "DELETE", "OPTIONS", "PATCH"],
@@ -26,10 +41,6 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-const instance = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID_TEST,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
 
 var mailchimp = new Mailchimp(process.env.MAILCHIMP_KEY);
 
@@ -39,145 +50,117 @@ app.get("/", (req, res) => {
   });
 });
 
-///craete order id
-app.get("/create-order", (req, res, next) => {
-  const options = {
-    amount: 299, // amount in the smallest currency unit
-    currency: "INR",
-    receipt: "order_rcptid_11",
-    payment: {
-      capture: "automatic",
-      capture_options: {
-        automatic_expiry_period : 12,
-        manual_expiry_period : 7200,
-        refund_speed : "optimum"
-      }
-    }
-  };
-  instance.orders.create(options, function (err, order) {
-    if(err){
-      console.log('error====>',err)
-    }
-    console.log(order);
-    res.send({ orderId: order.id });
-  });
-});
 
 
+app.post("/hook", customParser, (req, res) => {
+  var payload = req.body.payload.payment.entity;
+  console.log(payload);
 
-/// accpet payment
+  if (payload.amount == 29900) {
+    if (payload.status == "failed") {
+      const email = payload.email;
 
-app.get('/accpet',(res, req, next) => {
+      const hashedEmail = md5(email);
 
-})
-
-
-///get customer info
-app.get("/userinfo/:id", (req, res, next) => {
-  const { id } = req.params;
-
-  instance.payments.fetch(id).then((response) => {
-    console.log(response.email);
-    res.send({ email: response.email, number: response.contact });
-  });
-});
-
-
-////mailchimp api start from here
-
-//// sucess payment
-app.get("/mc/add-success-tag/:email", (req, res, next) => {
-  const { email } = req.params;
-
-  const hashedEmail = md5(email);
-
-  mailchimp
-    .post({
-      path: `/lists/f22669270c/members/${hashedEmail}/tags`,
-      body: {
-        tags: [
-          {
-            name: "HackerrankPaid",
-            status: "active",
+      mailchimp
+        .post({
+          path: `/lists/f22669270c/members/${hashedEmail}/tags`,
+          body: {
+            tags: [
+              {
+                name: "HackerrankFollowup",
+                status: "active",
+              },
+            ],
           },
-        ],
-      },
-    })
-    .then((response) => {
-      if (response.statusCode == 204) {
-        mailchimp
-          .post({
-            path: `/lists/f22669270c/members/${hashedEmail}/tags`,
-            body: {
-              tags: [
-                {
-                  name: "HackerrankFollowup",
-                  status: "inactive",
-                },
-              ],
-            },
-          })
-          .then((response) => {
-            if (response.statusCode == 204) {
-              next()
-            }
-          })
-          .catch((error) => {
-            console.log(error);
-          });
-      } else {
-        return res.status(422).json({ message: "failed to add tag" });
-      }
-      
-      return res.status(200).json({ message: "sucess" });
+        })
+        .then((response) => {
+          axios
+            .post(
+              "https://webhooks.integrately.com/a/webhooks/d5e1be31d65f4e478d0212c1dd1fe622",
+              {
+                email: payload.email,
+                contact: payload.contact,
+                paymentStatus: payload.status,
+                amount: payload.amount,
+                paymentid: payload.id,
+                orderid: payload.order_id,
+              }
+            )
+            .then((response) => {
+              console.log(response.status);
+            })
+            .catch((error) => {
+              console.log(error);
+            });
+        })
+        .catch((error) => {
+          console.log(error);
+        });
+    } else {
+      ///sucess payment then process
+      const email = payload.email;
+      const hashedEmail = md5(email);
 
-
-  
-    })
-    .catch((error) => {
-      console.log(error);
-    });
-});
-
-
-///failed payment 
-
-app.get("/mc/add-followup-tag/:email", (req, res, next) => {
-  const { email } = req.params;
-
-  const hashedEmail = md5(email);
-
-  mailchimp
-    .post({
-      path: `/lists/f22669270c/members/${hashedEmail}/tags`,
-      body: {
-        tags: [
-          {
-            name: "HackerrankFollowup",
-            status: "active",
+      mailchimp
+        .post({
+          path: `/lists/f22669270c/members/${hashedEmail}/tags`,
+          body: {
+            tags: [
+              {
+                name: "HackerrankPaid",
+                status: "active",
+              },
+            ],
           },
-        ],
-      },
-    })
-    .then((response) => {
-
-      if(response.statusCode == 204) {
-        return res.status(200).json({ message: "sucess" });
-      }
-    })
-    .catch((error) => {
-      console.log(error);
-    });
+        })
+        .then((response) => {
+          mailchimp
+            .post({
+              path: `/lists/f22669270c/members/${hashedEmail}/tags`,
+              body: {
+                tags: [
+                  {
+                    name: "HackerrankFollowup",
+                    status: "inactive",
+                  },
+                ],
+              },
+            })
+            .then((response) => {
+              axios
+                .post(
+                  "https://webhooks.integrately.com/a/webhooks/d5e1be31d65f4e478d0212c1dd1fe622",
+                  {
+                    email: payload.email,
+                    contact: payload.contact,
+                    paymentStatus: payload.status,
+                    amount: payload.amount,
+                    paymentid: payload.id,
+                    orderid: payload.order_id,
+                  }
+                )
+                .then((response) => {
+                  console.log(response.status);
+                })
+                .catch((error) => {
+                  console.log(error);
+                });
+            })
+            .catch((error) => {
+              console.log(error);
+            });
+        })
+        .catch((error) => {
+          console.log(error);
+        });
+    }
+  } else {
+    ///do nothing
+    return;
+  }
 });
-
-
-
-
-
 
 app.listen(process.env.PORT, function () {
   console.log(`server is running ${process.env.PORT}`);
 });
-
-
-
