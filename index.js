@@ -27,7 +27,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 const instance = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID_TEST,
+  key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
@@ -55,6 +55,9 @@ app.get("/create-order", (req, res, next) => {
     }
   };
   instance.orders.create(options, function (err, order) {
+    if(err){
+      console.log('error====>',err)
+    }
     console.log(order);
     res.send({ orderId: order.id });
   });
@@ -166,14 +169,6 @@ app.get("/mc/add-followup-tag/:email", (req, res, next) => {
       console.log(error);
     });
 });
-
-
-app.post('/webhook',(res,req,next) => {
-  console.log(req.body)
-  console.log('working')
-  next()
-})
-
 
 
 
