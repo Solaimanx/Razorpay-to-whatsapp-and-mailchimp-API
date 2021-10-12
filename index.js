@@ -27,7 +27,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 const instance = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
+  key_id: process.env.RAZORPAY_KEY_ID_TEST,
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
