@@ -41,7 +41,6 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-
 var mailchimp = new Mailchimp(process.env.MAILCHIMP_KEY);
 
 app.get("/", (req, res) => {
@@ -50,109 +49,243 @@ app.get("/", (req, res) => {
   });
 });
 
-
-
 app.post("/hook", customParser, (req, res) => {
   var payload = req.body.payload.payment.entity;
-  console.log(payload);
+
+  var email = payload.email;
+
+  var hashedEmail = md5(email);
 
   if (payload.amount == 29900) {
     if (payload.status == "failed") {
-      const email = payload.email;
-
-      const hashedEmail = md5(email);
-
       mailchimp
-        .post({
-          path: `/lists/f22669270c/members/${hashedEmail}/tags`,
-          body: {
-            tags: [
-              {
-                name: "HackerrankFollowup",
-                status: "active",
-              },
-            ],
-          },
+        .get({
+          path: `/lists/f22669270c/members/${hashedEmail}`,
         })
         .then((response) => {
-          axios
-            .post(
-              "https://webhooks.integrately.com/a/webhooks/d5e1be31d65f4e478d0212c1dd1fe622",
-              {
-                email: payload.email,
-                contact: payload.contact,
-                paymentStatus: payload.status,
-                amount: payload.amount,
-                paymentid: payload.id,
-                orderid: payload.order_id,
-              }
-            )
+          if (response.statusCode == 200) {
+            mailchimp
+              .post({
+                path: `/lists/f22669270c/members/${hashedEmail}/tags`,
+                body: {
+                  tags: [
+                    {
+                      name: "HackerrankFollowup",
+                      status: "active",
+                    },
+                  ],
+                },
+              })
+              .then((response) => {
+                axios
+                  .post(
+                    "https://webhooks.integrately.com/a/webhooks/d5e1be31d65f4e478d0212c1dd1fe622",
+                    {
+                      email: payload.email,
+                      contact: payload.contact,
+                      paymentStatus: payload.status,
+                      amount: payload.amount,
+                      paymentid: payload.id,
+                      orderid: payload.order_id,
+                    }
+                  )
+                  .then((response) => {
+                    console.log(response.status);
+                    return res.status(200).json({ message: "success" });
+                  })
+                  .catch((error) => {
+                    console.log(error);
+                  });
+              })
+              .catch((error) => {
+                console.log(error);
+              });
+          }
+        })
+        .catch((error) => {
+          ///add subscriber (status : failed)
+
+          mailchimp
+            .post({
+              path: `/lists/f22669270c/members`,
+              body: {
+                email_address: payload.email,
+                status: "subscribed",
+              },
+            })
             .then((response) => {
-              console.log(response.status);
+              if (response.statusCode == 200) {
+                ///add tags after adding new email to list
+
+                mailchimp
+                  .post({
+                    path: `/lists/f22669270c/members/${hashedEmail}/tags`,
+                    body: {
+                      tags: [
+                        {
+                          name: "HackerrankFollowup",
+                          status: "active",
+                        },
+                        {
+                          name: "CodingInterviewAudience",
+                          status: "active",
+                        },
+                      ],
+                    },
+                  })
+                  .then((response) => {
+                    axios
+                      .post(
+                        "https://webhooks.integrately.com/a/webhooks/d5e1be31d65f4e478d0212c1dd1fe622",
+                        {
+                          email: payload.email,
+                          contact: payload.contact,
+                          paymentStatus: payload.status,
+                          amount: payload.amount,
+                          paymentid: payload.id,
+                          orderid: payload.order_id,
+                        }
+                      )
+                      .then((response) => {
+                        console.log(response.status);
+                        return res.status(200).json({ message: "success" });
+                      })
+                      .catch((error) => {
+                        console.log(error);
+                      });
+                  })
+                  .catch((error) => {
+                    console.log(error);
+                  });
+              }
             })
             .catch((error) => {
               console.log(error);
             });
-        })
-        .catch((error) => {
-          console.log(error);
         });
     } else {
       ///sucess payment then process
-      const email = payload.email;
-      const hashedEmail = md5(email);
 
       mailchimp
-        .post({
-          path: `/lists/f22669270c/members/${hashedEmail}/tags`,
-          body: {
-            tags: [
-              {
-                name: "HackerrankPaid",
-                status: "active",
-              },
-            ],
-          },
+        .get({
+          path: `/lists/f22669270c/members/${hashedEmail}`,
         })
         .then((response) => {
+          if (response.statusCode == 200) {
+            const email = payload.email;
+            const hashedEmail = md5(email);
+
+            mailchimp
+              .post({
+                path: `/lists/f22669270c/members/${hashedEmail}/tags`,
+                body: {
+                  tags: [
+                    {
+                      name: "HackerrankPaid",
+                      status: "active",
+                    },
+                  ],
+                },
+              })
+              .then((response) => {
+                mailchimp
+                  .post({
+                    path: `/lists/f22669270c/members/${hashedEmail}/tags`,
+                    body: {
+                      tags: [
+                        {
+                          name: "HackerrankFollowup",
+                          status: "inactive",
+                        },
+                      ],
+                    },
+                  })
+                  .then((response) => {
+                    axios
+                      .post(
+                        "https://webhooks.integrately.com/a/webhooks/d5e1be31d65f4e478d0212c1dd1fe622",
+                        {
+                          email: payload.email,
+                          contact: payload.contact,
+                          paymentStatus: payload.status,
+                          amount: payload.amount,
+                          paymentid: payload.id,
+                          orderid: payload.order_id,
+                        }
+                      )
+                      .then((response) => {
+                        console.log(response.status);
+                      })
+                      .catch((error) => {
+                        console.log(error);
+                      });
+                  })
+                  .catch((error) => {
+                    console.log(error);
+                  });
+              })
+              .catch((error) => {
+                console.log(error);
+              });
+          }
+        })
+        .catch((error) => {
+          /// add new subscriber ( status : success)
+
           mailchimp
             .post({
-              path: `/lists/f22669270c/members/${hashedEmail}/tags`,
+              path: `/lists/f22669270c/members`,
               body: {
-                tags: [
-                  {
-                    name: "HackerrankFollowup",
-                    status: "inactive",
-                  },
-                ],
+                email_address: payload.email,
+                status: "subscribed",
               },
             })
             .then((response) => {
-              axios
-                .post(
-                  "https://webhooks.integrately.com/a/webhooks/d5e1be31d65f4e478d0212c1dd1fe622",
-                  {
-                    email: payload.email,
-                    contact: payload.contact,
-                    paymentStatus: payload.status,
-                    amount: payload.amount,
-                    paymentid: payload.id,
-                    orderid: payload.order_id,
-                  }
-                )
-                .then((response) => {
-                  console.log(response.status);
-                })
-                .catch((error) => {
-                  console.log(error);
-                });
-            })
-            .catch((error) => {
-              console.log(error);
+              if (response.statusCode == 200) {
+                ///adding new subscripter tags ( after direct sucess payment )
+
+                mailchimp
+                  .post({
+                    path: `/lists/f22669270c/members/${hashedEmail}/tags`,
+                    body: {
+                      tags: [
+                        {
+                          name: "HackerrankPaid",
+                          status: "active",
+                        },
+                        {
+                          name: "CodingInterviewAudience",
+                          status: "active",
+                        },
+                      ],
+                    },
+                  })
+                  .then((response) => {
+                    axios
+                      .post(
+                        "https://webhooks.integrately.com/a/webhooks/d5e1be31d65f4e478d0212c1dd1fe622",
+                        {
+                          email: payload.email,
+                          contact: payload.contact,
+                          paymentStatus: payload.status,
+                          amount: payload.amount,
+                          paymentid: payload.id,
+                          orderid: payload.order_id,
+                        }
+                      )
+                      .then((response) => {
+                        console.log(response.status);
+                        return res.status(200).json({ message: "success" });
+                      })
+                      .catch((error) => {
+                        console.log(error);
+                      });
+                  })
+                  .catch((error) => {
+                    console.log(error);
+                  });
+              }
             });
-        })
-        .catch((error) => {
-          console.log(error);
         });
     }
   } else {
