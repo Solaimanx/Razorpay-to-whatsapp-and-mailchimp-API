@@ -1,1 +1,1 @@
-# This project help to create a order id using razorpay api and add email to mailchimp list and send whatsapp message using aisensy api 
+# Handling webhook request and adding/removing tags from mailchimp using API
